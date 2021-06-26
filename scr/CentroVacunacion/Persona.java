@@ -9,7 +9,7 @@ public class Persona implements Comparable<Persona>{
     private boolean fueVacunado;
     private int prioridad;
     private Fecha hoy;
-    
+    private String tipo;
     
     public Persona(int dni, Fecha nacimiento , boolean esPersonaRiesgo, boolean esPersonalSalud) {
     	this.dni = dni;
@@ -19,11 +19,28 @@ public class Persona implements Comparable<Persona>{
     	this.hoy = Fecha.hoy();
     	this.edad = this.calcularEdad(this.hoy, nacimiento);
         this.fueVacunado = false;
-        this.asignarPrioridad(dni, nacimiento, esPersonaRiesgo, esPersonalSalud);
+        this.asignarPrioridad(nacimiento, esPersonaRiesgo, esPersonalSalud);
+        this.tipo= calcularTipoPersona();
     	  	   	
     }
     
-    public int calcularEdad(Fecha hoy, Fecha nacimiento){
+    public String calcularTipoPersona() {
+		if(this.edad >= 60) {
+			return "Mayor";
+		}else{
+			return "Menor";
+		}
+	}
+
+	public String getTipo() {
+		return tipo;
+	}
+
+	public void setTipo(String tipo) {
+		this.tipo = tipo;
+	}
+
+	public int calcularEdad(Fecha hoy, Fecha nacimiento){
     	return Fecha.diferenciaAnios(hoy, nacimiento);
     }
     
@@ -31,7 +48,7 @@ public class Persona implements Comparable<Persona>{
 		return edad;
 	}
 
-	public void asignarPrioridad(int dni, Fecha nacimiento , boolean esPersonaRiesgo, boolean esPersonalSalud) {
+	public void asignarPrioridad( Fecha nacimiento , boolean esPersonaRiesgo, boolean esPersonalSalud) {
     	//nivel 1: persona de salud
     	//nivel 2: mayor de 60 años
     	//nivel 3: esRiesgo
@@ -50,17 +67,9 @@ public class Persona implements Comparable<Persona>{
     
     
     public int compareTo(Persona otra) {
-    	return otra.prioridad - this.prioridad;
+    	return this.prioridad - otra.prioridad;
     }
     
-    @Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + prioridad;
-		return result;
-	}
-
 	public boolean isFueVacunado() {
 		return fueVacunado;
 	}
@@ -75,6 +84,15 @@ public class Persona implements Comparable<Persona>{
 	}
 
 
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + dni;
+		return result;
+	}
+
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj)
@@ -84,7 +102,7 @@ public class Persona implements Comparable<Persona>{
 		if (getClass() != obj.getClass())
 			return false;
 		Persona other = (Persona) obj;
-		if (prioridad != other.prioridad)
+		if (dni != other.dni)
 			return false;
 		return true;
 	}

@@ -1,38 +1,41 @@
 package CentroVacunacion;
 
-public class Vacuna {
+public abstract class Vacuna {
 	private String marca;
 	private int gradoConservacion;
 	private boolean reservada;
+	private String tipo;
+
+	public Vacuna() {
+		super();
+	}
 
 	public Vacuna(String nombreVacuna) {
 		marca = nombreVacuna;
-		this.gradoConservacion = this.asignarConservacion(nombreVacuna);
+		this.gradoConservacion = this.asignarConservacion();
 		this.reservada = false;
+		this.tipo=asignarTipo();
 	}
 
-	public int asignarConservacion(String nombreVacuna) {
-		if (nombreVacuna.equals("Pfizer") || nombreVacuna.equals("Moderna")) {
-			return -18;
-		} else {
-			if (nombreVacuna.equals("Sputnik") || nombreVacuna.equals("Sinopharm")
-					|| nombreVacuna.equals("AstraZeneca")) {
-				return 3;
-			} else {
-				// valor para vacuna no existentes
-				return 0;
-			}
-		}
+	abstract String asignarTipo();
+	
+
+	public int asignarConservacion() {
+		return 0;
 	}
+	
 
 	public String getMarca() {
 		return marca;
 	}
 
-//	public void setMarca(String marca) {
-//		this.marca = marca;
-//	}
-
+	public String getTipo() {
+		return tipo;
+	}
+	
+	public void setTipo(String tipo) {
+		this.tipo= tipo;
+	}
 	public int getGradoConservacion() {
 		return gradoConservacion;
 	}

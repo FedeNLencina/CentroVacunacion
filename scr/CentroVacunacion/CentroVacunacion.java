@@ -8,11 +8,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-public class CentroVacunacion implements metodosCentroVacunacion{
+public class CentroVacunacion {
 	private String nombreCentro;
 	private int capacidadVacunacionDiaria;
-	private Contenedor<Vacuna> contenedor3;
-	private ContenedorConVencimiento contenedor18;
+	private Contenedor contenedorVacunas;
 	private ArrayList<Turno> turnos;
 	private ArrayList<Persona> listaPersonasEspera;
 	
@@ -21,8 +20,7 @@ public class CentroVacunacion implements metodosCentroVacunacion{
 	public CentroVacunacion(String nombreCentro, int capacidadVacunacionDiaria) {
 		this.nombreCentro = nombreCentro;
 		turnos = new ArrayList<Turno>();
-		contenedor3 = new Contenedor<Vacuna>();
-		contenedor18 = new ContenedorConVencimiento();
+		contenedorVacunas = new Contenedor();
 		listaPersonasEspera=new ArrayList<Persona>();
 		this.capacidadVacunacionDiaria = capacidadVacunacionDiaria;
 	}
@@ -35,11 +33,16 @@ public class CentroVacunacion implements metodosCentroVacunacion{
 			throw new VacunaException("no existe la marca de vacuna ingresada");
 		}
 		for(int i=0; i<cantidad; i++) {
-			if (nombreVacuna.equals("Sinopharm") || nombreVacuna.equals("Sputnik") || nombreVacuna.equals("AstraZeneca")) {
-				contenedor3.agregarVacunas(new Vacuna(nombreVacuna));
-			} else {			
-				contenedor18.agregarVacunas(new VacunaConVencimiento(nombreVacuna, fechaIngreso));
+			Vacuna vacuna= VacunaFactory.crearVacuna(nombreVacuna);
+			if (vacuna instanceof VacunaConVencimiento) {
+				VacunaConVencimiento vacunaAVencer = (VacunaConVencimiento)vacuna;
+				vacunaAVencer.setCaducidad(vacunaAVencer.marcarVencimiento(fechaIngreso));
+				contenedorVacunas.agregarVacunas(vacunaAVencer);
 			}
+			else {
+				contenedorVacunas.agregarVacunas(vacuna);
+			}
+			
 		}
 	}
 
@@ -49,6 +52,7 @@ public class CentroVacunacion implements metodosCentroVacunacion{
 			throw new RuntimeException("La fecha ingresada es una fecha no valida");
 		}
 		else {
+			//caso turno vencido.
 			Iterator<Turno> it = turnos.iterator();
 			while(it.hasNext()) {
 				Turno turnoActual = it.next();
@@ -58,119 +62,70 @@ public class CentroVacunacion implements metodosCentroVacunacion{
 					it.remove();
 				}	
 			}
-			Iterator<VacunaConVencimiento> it2 = contenedor18.getStockVacunas().iterator();
+			//caso de vacunas vencidas
+			Iterator<Vacuna> it2 = contenedorVacunas.getStockVacunas().iterator();
 			while(it2.hasNext()) {
-				VacunaConVencimiento vacunaActual= it2.next();
-				if(vacunaActual.estaVencida(fechaInicial)) {
-					contenedor18.agregarVacunaVencina(vacunaActual);
-					it2.remove();
+				Vacuna vacunaActual= it2.next();
+				if(vacunaActual instanceof VacunaConVencimiento) {
+					if(((VacunaConVencimiento)vacunaActual).estaVencida(fechaInicial)) {
+						contenedorVacunas.agregarVacunaVencida((VacunaConVencimiento)vacunaActual);
+						it2.remove();
+					}
 				}
 			}
 		
 			//Una vez verificado los dos caso anteriores, ordeno la lista con el metodo sort el cual utiliza el compareTo para
 			//ordenarlos en funcion de la prioridad y luego se les asigna el turno en funcion de la capacidad de vacunacion.
-			Collections.sort(listaDeEspera());
+			Collections.sort(listaPersonasEspera);
 			Iterator <Persona> it3 = listaPersonasEspera.iterator();
 			while(it3.hasNext()) {
-				while(this.listaPersonasEspera.size()>0) {
-					if(this.turnos.size() >0 && (this.turnos.size() % capacidadVacunacionDiaria==0)) {
+				if(this.listaPersonasEspera.size()>0) {
+					if(this.turnos.size()>0 && (this.turnos.size() % capacidadVacunacionDiaria==0)) {
 						Fecha siguiente = new Fecha(fechaInicial.dia(), fechaInicial.mes(), fechaInicial.anio());
 						siguiente.avanzarUnDia();
 						fechaInicial=siguiente;
 			
 					}
-				
 					Persona personaActual = it3.next();
-					if(personaActual.getEdad()>=60) {
-						if(vacunasDisponibles("Pfizer")>0) {
-							Vacuna asignada = contenedor18.dameVacunaNoReservada("Pfizer");
-							if(asignada!=null) {
-								turnos.add(new Turno(fechaInicial, asignada, personaActual));
-								asignada.setReservada(true);
-								it3.remove();
-							}
-							else
-								throw new RuntimeException("No se encuentran vacunas disponibles");
-						}
-						else if(vacunasDisponibles("Sputnik")>0) {
-							Vacuna asignada = contenedor3.dameVacunaNoReservada("Sputnik");
-							if(asignada!=null) {
-								turnos.add(new Turno(fechaInicial, asignada, personaActual));
-								asignada.setReservada(true);
-								it3.remove();
-							}
-							else
-								throw new RuntimeException("No se encuentran vacunas disponibles");
-						}	
+					Vacuna vacunaAsignada=contenedorVacunas.dameVacunaNoReservada(personaActual);
+					if(vacunaAsignada!=null) {
+						turnos.add(new Turno(fechaInicial, vacunaAsignada, personaActual));
+						vacunaAsignada.setReservada(true);
+						it3.remove();
 					}
-					else {
-						if(vacunasDisponibles("Sinopharm")>0) {
-							Vacuna asignada = contenedor3.dameVacunaNoReservada("Sinopharm");
-							if(asignada!=null) {
-								turnos.add(new Turno(fechaInicial, asignada, personaActual));
-								asignada.setReservada(true);
-								it3.remove();
-							}
-							else
-								throw new RuntimeException("No se encuentran vacunas disponibles");
-						}
-						if(vacunasDisponibles("Moderna")>0) {
-							Vacuna asignada = contenedor18.dameVacunaNoReservada("Moderna");
-							if(asignada!=null) {
-								turnos.add(new Turno(fechaInicial, asignada, personaActual));
-								asignada.setReservada(true);
-								it3.remove();
-							}
-							else
-								throw new RuntimeException("No se encuentran vacunas disponibles");
-						}
-						if(vacunasDisponibles("AstraZeneca")>0) {
-							Vacuna asignada = contenedor3.dameVacunaNoReservada("AstraZeneca");
-							if(asignada!=null) {
-								turnos.add(new Turno(fechaInicial, asignada, personaActual));
-								asignada.setReservada(true);
-								it3.remove();
-							}
-							else
-								throw new RuntimeException("No se encuentran vacunas disponibles");
-						}
-			
-					}
+
 				}
 			}
 		}
 	}
 
 	public void inscribirPersona(int dni, Fecha nacimiento, boolean tienePadecimientos, boolean esEmpleadoSalud) {
-		listaPersonasEspera.add( new Persona(dni, nacimiento, tienePadecimientos, esEmpleadoSalud));
+		Persona persona = new Persona(dni, nacimiento, tienePadecimientos, esEmpleadoSalud);
+		if (persona.getEdad()<18) {
+			throw new RuntimeException("La persona no puede ser inscripta por ser menor de edad.");
+		}
+		else if (persona.isFueVacunado()) {
+			throw new RuntimeException("La persona fue vacunada.");
+		}
+		else if (listaPersonasEspera.contains(persona)) {
+			throw new RuntimeException("La persona se encuentra inscripta");
+		}
+		else 
+			listaPersonasEspera.add(persona);
 
 	}
 
 	
 	public int vacunasDisponibles(String nombreVacuna) {
-		if (contenedor3.existeMarcaVacuna(nombreVacuna)) {
-			return contenedor3.consultarCantidad(nombreVacuna);
-		} else {
-			return contenedor18.consultarCantidad(nombreVacuna);
-		}		
+			return contenedorVacunas.consultarCantidad(nombreVacuna);
 	}
 
 	
 	public int vacunasDisponibles() {
-		int cantidad= 0;
-		for( Vacuna vacuna : contenedor3.getStockVacunas()) {
-			if (!vacuna.isReservada()) {
-				cantidad = cantidad + 1;
-			}
-		}
-		for( Vacuna vacuna : contenedor18.getStockVacunas()) {
-			if (!vacuna.isReservada()) {
-				cantidad = cantidad + 1;
-			}
-		}
-		return cantidad;
+		return contenedorVacunas.consultarCantidad();
 	}
 
+	
 	public List<Integer> listaDeEspera() {
 		ArrayList<Integer> listaDNI= new ArrayList<Integer>();
 		for(Persona persona: this.listaPersonasEspera)
@@ -220,21 +175,31 @@ public class CentroVacunacion implements metodosCentroVacunacion{
 	
 	public Map<String, Integer> reporteVacunasVencidas() {
 		
-		return this.contenedor18.getListaVencidas();
+		return this.contenedorVacunas.getListaVencidas();
 	}
 
 	private void quitarDelContenedor(Vacuna vacuna) {
-		if(vacuna.getMarca().equals("Pfizer") || vacuna.getMarca().equals("Moderna")) {
-			contenedor18.quitarVacuna(vacuna.getMarca());
-		}
-		else
-			contenedor3.quitarVacuna(vacuna.getMarca());	
+		contenedorVacunas.quitarVacuna(vacuna.getTipo());
 	}
 	
 	@Override
 	public String toString() {
-		return "CentroVacunacion [nombreCentro=" + nombreCentro + ", capacidadVacunacionDiaria="
-				+ capacidadVacunacionDiaria + "]";
+		StringBuilder sb = new StringBuilder();
+		sb.append("CentroVacunacion=" )
+		  .append(nombreCentro)
+		  .append(", capacidadVacunacionDiaria= ")
+		  .append(capacidadVacunacionDiaria)
+		  .append(", cantidad de vacunas disponibles= ")
+		  .append(vacunasDisponibles())
+		  .append(", cantidad de personas en espera= ")
+		  .append(listaDeEspera().size())
+		  .append(", cantidad de turnos generados= ")
+		  .append(turnos.size())
+		  .append(", cantidad de vacunas aplicadas= ")
+		  .append(reporteVacunacion().size())
+		  .append("]");
+		
+		return sb.toString();
 	}
 
 }
