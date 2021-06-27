@@ -67,7 +67,7 @@ public class Persona implements Comparable<Persona>{
     
     
     public int compareTo(Persona otra) {
-    	return this.prioridad - otra.prioridad;
+    	return otra.prioridad - this.prioridad;
     }
     
 	public boolean isFueVacunado() {
@@ -84,6 +84,14 @@ public class Persona implements Comparable<Persona>{
 	}
 
 
+
+	public int getPrioridad() {
+		return prioridad;
+	}
+
+	public void setPrioridad(int prioridad) {
+		this.prioridad = prioridad;
+	}
 
 	@Override
 	public int hashCode() {

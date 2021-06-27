@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -12,17 +13,16 @@ public class CentroVacunacion {
 	private String nombreCentro;
 	private int capacidadVacunacionDiaria;
 	private Contenedor contenedorVacunas;
-	private ArrayList<Turno> turnos;
-	private ArrayList<Persona> listaPersonasEspera;
-	
+	private HashMap<Integer,Turno> turnos;
+	private HashMap<Integer, LinkedList<Persona>> listaPersonasEspera;
 	
 	
 	public CentroVacunacion(String nombreCentro, int capacidadVacunacionDiaria) {
 		this.nombreCentro = nombreCentro;
-		turnos = new ArrayList<Turno>();
 		contenedorVacunas = new Contenedor();
-		listaPersonasEspera=new ArrayList<Persona>();
 		this.capacidadVacunacionDiaria = capacidadVacunacionDiaria;
+		listaPersonasEspera=new HashMap<Integer,LinkedList<Persona>>();
+		turnos=new HashMap<Integer,Turno>();
 	}
 
 	public void ingresarVacunas(String nombreVacuna, int cantidad, Fecha fechaIngreso) {
@@ -53,7 +53,7 @@ public class CentroVacunacion {
 		}
 		else {
 			//caso turno vencido.
-			Iterator<Turno> it = turnos.iterator();
+			Iterator<Turno> it = turnos.values().iterator();
 			while(it.hasNext()) {
 				Turno turnoActual = it.next();
 				if(turnoActual.getFecha().compareTo(fechaInicial)<0) {
@@ -74,26 +74,26 @@ public class CentroVacunacion {
 				}
 			}
 		
-			//Una vez verificado los dos caso anteriores, ordeno la lista con el metodo sort el cual utiliza el compareTo para
-			//ordenarlos en funcion de la prioridad y luego se les asigna el turno en funcion de la capacidad de vacunacion.
-			Collections.sort(listaPersonasEspera);
-			Iterator <Persona> it3 = listaPersonasEspera.iterator();
-			while(it3.hasNext()) {
-				if(this.listaPersonasEspera.size()>0) {
-					if(this.turnos.size()>0 && (this.turnos.size() % capacidadVacunacionDiaria==0)) {
-						Fecha siguiente = new Fecha(fechaInicial.dia(), fechaInicial.mes(), fechaInicial.anio());
-						siguiente.avanzarUnDia();
-						fechaInicial=siguiente;
+		
+			for(Integer clave : this.listaPersonasEspera.keySet()) {
+				Iterator <Persona> it3 = listaPersonasEspera.get(clave).iterator();
+				while(it3.hasNext()) {
+					if(this.listaPersonasEspera.size()>0) {
+						if(this.turnos.size()>0 && (this.turnos.size() % capacidadVacunacionDiaria==0)) {
+							Fecha siguiente = new Fecha(fechaInicial.dia(), fechaInicial.mes(), fechaInicial.anio());
+							siguiente.avanzarUnDia();
+							fechaInicial=siguiente;
 			
-					}
-					Persona personaActual = it3.next();
-					Vacuna vacunaAsignada=contenedorVacunas.dameVacunaNoReservada(personaActual);
-					if(vacunaAsignada!=null) {
-						turnos.add(new Turno(fechaInicial, vacunaAsignada, personaActual));
-						vacunaAsignada.setReservada(true);
-						it3.remove();
-					}
+						}
+						Persona personaActual = it3.next();
+						Vacuna vacunaAsignada=contenedorVacunas.dameVacunaNoReservada(personaActual);
+						if(vacunaAsignada!=null) {
+							turnos.put(personaActual.getDni(),new Turno(fechaInicial, vacunaAsignada, personaActual));
+							vacunaAsignada.setReservada(true);
+							it3.remove();
+						}
 
+					}
 				}
 			}
 		}
@@ -107,12 +107,21 @@ public class CentroVacunacion {
 		else if (persona.isFueVacunado()) {
 			throw new RuntimeException("La persona fue vacunada.");
 		}
-		else if (listaPersonasEspera.contains(persona)) {
-			throw new RuntimeException("La persona se encuentra inscripta");
+		else if (listaPersonasEspera.containsKey((Integer)persona.getPrioridad())) {
+			LinkedList<Persona> lista = listaPersonasEspera.get(persona.getPrioridad());
+			if(lista.contains(persona)) {
+				throw new RuntimeException("La persona se encuentra inscripta");
+			}
+			else {
+				lista.addLast(persona);
+				System.out.println(listaPersonasEspera.toString());
+			}
 		}
-		else 
-			listaPersonasEspera.add(persona);
-
+		else {
+			listaPersonasEspera.put((Integer)persona.getPrioridad(),new LinkedList<Persona>());
+			listaPersonasEspera.get((Integer)persona.getPrioridad()).addFirst(persona);
+			System.out.println(listaPersonasEspera.toString());
+		}
 	}
 
 	
@@ -128,16 +137,21 @@ public class CentroVacunacion {
 	
 	public List<Integer> listaDeEspera() {
 		ArrayList<Integer> listaDNI= new ArrayList<Integer>();
-		for(Persona persona: this.listaPersonasEspera)
-			if(!persona.isFueVacunado())
-				listaDNI.add(persona.getDni());
+		
+		for(Integer clave : this.listaPersonasEspera.keySet()) {
+			LinkedList<Persona> lista = listaPersonasEspera.get(clave);
+			for (Persona persona: lista) {
+				if(!persona.isFueVacunado())
+					listaDNI.add(persona.getDni());
+			}
+		}
 		return listaDNI;
 	}
 
 	
 	public Map<Integer, String> reporteVacunacion() {
 		HashMap<Integer, String> reporte = new HashMap<>();
-		for (Turno turno : turnos) {
+		for (Turno turno : turnos.values()) {
 			Persona persona = turno.getPersona();
 			if(persona.isFueVacunado() && !reporte.containsKey(persona.getDni()))
 				reporte.put(persona.getDni(), turno.getVacuna().getMarca());
@@ -148,7 +162,7 @@ public class CentroVacunacion {
 	
 	public List<Integer> turnosConFecha(Fecha fecha) {
 		ArrayList<Integer> listaDNI= new ArrayList<Integer>();
-		for(Turno turno: this.turnos)
+		for(Turno turno: this.turnos.values())
 			if(turno.getFecha().equals(fecha))
 				listaDNI.add(turno.getPersona().getDni());
 		return listaDNI;
@@ -157,17 +171,15 @@ public class CentroVacunacion {
 	public void vacunarInscripto(int dni, Fecha fechaVacunacion) {
 		boolean vacunar = false;
 		
-		for(Turno turno : turnos) {
-			Persona persona = turno.getPersona();
-			if ((persona.getDni()==dni) && (turno.getFecha().compareTo(fechaVacunacion))==0) {
+		Turno turnoActual=turnos.get(dni);	
+		Persona persona = turnoActual.getPersona();
+			if ((persona.getDni()==dni) && (turnoActual.getFecha().compareTo(fechaVacunacion))==0) {
 				persona.setFueVacunado(true);
 				vacunar=true;
-				quitarDelContenedor(turno.getVacuna());
-				
+				quitarDelContenedor(turnoActual.getVacuna());
 			}	
-			if((persona.getDni()==dni) && (turno.getFecha().compareTo(fechaVacunacion))!=0)
+			if((persona.getDni()==dni) && (turnoActual.getFecha().compareTo(fechaVacunacion))!=0)
 				throw new RuntimeException("La persona no tiene turno para esta fecha");
-		}
 		if(!vacunar)
 			throw new RuntimeException("La persona no tiene un turno asignado");
 
